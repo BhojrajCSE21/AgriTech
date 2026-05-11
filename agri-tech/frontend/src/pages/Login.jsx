@@ -1,13 +1,29 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { authAPI } from '../services/api';
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Login:', { email, password });
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await authAPI.login({ email, password });
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user || { email }));
+      navigate('/');
+    } catch (err) {
+      setError(err.response?.data?.msg || 'Login failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -19,7 +35,14 @@ function Login() {
       background: '#f5f6fa'
     }}>
       <div className="card p-4" style={{ width: '400px' }}>
-        <h3 className="text-center mb-4">Login to AgriTech</h3>
+        <h3 className="text-center mb-4">Login to CropPulse</h3>
+
+        {error && (
+          <div className="alert alert-danger" role="alert">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
             <label>Email</label>
@@ -28,6 +51,7 @@ function Login() {
               className="form-control"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
               required
             />
           </div>
@@ -38,11 +62,16 @@ function Login() {
               className="form-control"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
               required
             />
           </div>
-          <button type="submit" className="btn btn-success w-100">
-            Login
+          <button
+            type="submit"
+            className="btn btn-success w-100"
+            disabled={loading}
+          >
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
         <p className="text-center mt-3">
