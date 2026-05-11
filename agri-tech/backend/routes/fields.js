@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const Field = require('../models/Field');
+const auth = require('../middleware/auth');
 
-router.get('/', async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
-    const fields = await Field.find().sort({ createdAt: -1 });
+    const fields = await Field.find({ userId: req.user.id }).sort({ createdAt: -1 });
     res.json(fields);
   } catch (err) {
     console.error(err.message);
@@ -12,9 +13,19 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', auth, async (req, res) => {
   try {
-    const newField = new Field(req.body);
+    const { name, cropType, area, geoJson, centroid } = req.body;
+
+    const newField = new Field({
+      userId: req.user.id,
+      name,
+      cropType,
+      area,
+      geoJson,
+      centroid
+    });
+
     const field = await newField.save();
     res.json(field);
   } catch (err) {
@@ -23,9 +34,9 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', auth, async (req, res) => {
   try {
-    const field = await Field.findById(req.params.id);
+    const field = await Field.findOne({ _id: req.params.id, userId: req.user.id });
     if (!field) return res.status(404).json({ msg: 'Field not found' });
     res.json(field);
   } catch (err) {
@@ -34,10 +45,10 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', auth, async (req, res) => {
   try {
-    const field = await Field.findByIdAndUpdate(
-      req.params.id,
+    const field = await Field.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
       { $set: req.body },
       { new: true }
     );
@@ -49,11 +60,39 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   try {
-    const field = await Field.findByIdAndDelete(req.params.id);
+    const field = await Field.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
     if (!field) return res.status(404).json({ msg: 'Field not found' });
     res.json({ msg: 'Field deleted' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+router.post('/:id/analyze', auth, async (req, res) => {
+  try {
+    const field = await Field.findOne({ _id: req.params.id, userId: req.user.id });
+    if (!field) return res.status(404).json({ msg: 'Field not found' });
+
+    // For now, simulate NDVI calculation
+    // Later this will call Planetary Computer API
+    const simulatedNDVI = 0.4 + Math.random() * 0.4;
+
+    field.ndvi = simulatedNDVI;
+    field.lastAnalyzed = new Date();
+    field.ndviHistory.push({
+      value: simulatedNDVI,
+      date: new Date(),
+      source: 'Sentinel-2 (Simulated)'
+    });
+
+    // Calculate health score from NDVI
+    field.healthScore = Math.round(simulatedNDVI * 100);
+
+    await field.save();
+    res.json(field);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');

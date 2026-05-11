@@ -1,55 +1,188 @@
-import React, { useState } from 'react';
-import MapWithDraw from '../components/Map/MapWithDraw';
+import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Polygon, FeatureGroup, useMap } from 'react-leaflet';
+import { EditControl } from 'react-leaflet-draw';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet-draw/dist/leaflet.draw.css';
 import FieldInfoPanel from '../components/Map/FieldInfoPanel';
 import NDVILegend from '../components/Map/NDVILegend';
-import { FeatureGroup } from 'react-leaflet';
+import { fieldsAPI } from '../services/api';
+import '../components/Map/MapComponent.css';
+
+const TILE_LAYERS = {
+  satellite: {
+    name: 'Satellite',
+    attribution: '&copy; Esri',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+  },
+  streets: {
+    name: 'Streets',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+  },
+  positron: {
+    name: 'Light',
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+  },
+  dark: {
+    name: 'Dark',
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+  }
+};
+
+function MapBoundsUpdater({ fields }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (fields.length > 0) {
+      const allCoords = [];
+      fields.forEach(field => {
+        if (field.geoJson?.coordinates?.[0]) {
+          field.geoJson.coordinates[0].forEach(coord => {
+            allCoords.push([coord[1], coord[0]]);
+          });
+        }
+      });
+      if (allCoords.length > 0) {
+        map.fitBounds(allCoords, { padding: [50, 50] });
+      }
+    }
+  }, [fields, map]);
+
+  return null;
+}
 
 function FieldMap() {
-  const [drawnItems, setDrawnItems] = useState(null);
+  const [fields, setFields] = useState([]);
+  const [savedFields, setSavedFields] = useState([]);
   const [selectedField, setSelectedField] = useState(null);
   const [fieldName, setFieldName] = useState('');
   const [cropType, setCropType] = useState('Winter Wheat');
   const [analyzing, setAnalyzing] = useState(false);
+  const [activeLayer, setActiveLayer] = useState('satellite');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const handleFieldCreate = ({ geoJson, area, layer }) => {
-    setSelectedField({
-      name: fieldName || `Field ${Date.now()}`,
-      cropType,
-      area,
-      geoJson,
-      layer,
-      ndvi: null
-    });
+  useEffect(() => {
+    loadFields();
+  }, []);
+
+  const loadFields = async () => {
+    try {
+      setLoading(true);
+      const res = await fieldsAPI.getAll();
+      setSavedFields(res.data);
+    } catch (err) {
+      console.error('Failed to load fields:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleFieldEdit = (geoJson, layer) => {
-    setSelectedField(prev => ({
-      ...prev,
-      geoJson,
-      layer
-    }));
+  const calculateArea = (geometry) => {
+    const coords = geometry.coordinates[0];
+    let area = 0;
+    for (let i = 0; i < coords.length - 1; i++) {
+      area += coords[i][0] * coords[i + 1][1];
+      area -= coords[i + 1][0] * coords[i][1];
+    }
+    area = Math.abs(area / 2) * 111139 * 111139 / 10000;
+    return area.toFixed(2);
+  };
+
+  const getCentroid = (geometry) => {
+    const coords = geometry.coordinates[0];
+    let latSum = 0, lngSum = 0;
+    coords.forEach(coord => {
+      latSum += coord[1];
+      lngSum += coord[0];
+    });
+    return {
+      lat: latSum / coords.length,
+      lng: lngSum / coords.length
+    };
+  };
+
+  const handleFieldCreate = async ({ geoJson, layer }) => {
+    if (!fieldName.trim()) {
+      alert('Please enter a field name');
+      return;
+    }
+
+    const area = calculateArea(geoJson.geometry);
+    const centroid = getCentroid(geoJson.geometry);
+
+    try {
+      setSaving(true);
+      const res = await fieldsAPI.create({
+        name: fieldName,
+        cropType,
+        area,
+        geoJson: geoJson.geometry,
+        centroid
+      });
+
+      setSavedFields([res.data, ...savedFields]);
+      setSelectedField(res.data);
+      setFieldName('');
+    } catch (err) {
+      console.error('Failed to save field:', err);
+      alert('Failed to save field. Please login first.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleFieldEdit = async (fieldId, geoJson) => {
+    try {
+      const res = await fieldsAPI.update(fieldId, { geoJson: geoJson.geometry });
+      setSavedFields(savedFields.map(f => f._id === fieldId ? res.data : f));
+      setSelectedField(res.data);
+    } catch (err) {
+      console.error('Failed to update field:', err);
+    }
+  };
+
+  const handleDeleteField = async (fieldId) => {
+    if (!confirm('Are you sure you want to delete this field?')) return;
+
+    try {
+      await fieldsAPI.delete(fieldId);
+      setSavedFields(savedFields.filter(f => f._id !== fieldId));
+      if (selectedField?._id === fieldId) {
+        setSelectedField(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete field:', err);
+    }
   };
 
   const handleAnalyze = async () => {
-    if (!selectedField?.geoJson) return;
+    if (!selectedField?._id) return;
 
     setAnalyzing(true);
-
-    // Simulate NDVI calculation (will connect to backend later)
-    setTimeout(() => {
-      const simulatedNDVI = 0.4 + Math.random() * 0.4;
-      setSelectedField(prev => ({
-        ...prev,
-        ndvi: simulatedNDVI
-      }));
+    try {
+      const res = await fieldsAPI.analyze(selectedField._id);
+      setSelectedField(res.data);
+      setSavedFields(savedFields.map(f => f._id === selectedField._id ? res.data : f));
+    } catch (err) {
+      console.error('Failed to analyze field:', err);
+    } finally {
       setAnalyzing(false);
-    }, 2000);
+    }
+  };
+
+  const polygonToLeaflet = (geoJson) => {
+    if (!geoJson?.coordinates?.[0]) return [];
+    return geoJson.coordinates[0].map(coord => [coord[1], coord[0]]);
   };
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ padding: '20px', height: 'calc(100vh - 80px)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>Field Map - Draw Your Farm</h2>
+        <h2 style={{ margin: 0 }}>My Fields</h2>
         <div style={{ display: 'flex', gap: '10px' }}>
           <input
             type="text"
@@ -73,13 +206,130 @@ function FieldMap() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '20px', height: 'calc(100vh - 200px)' }}>
-        <div style={{ flex: 1, position: 'relative' }}>
-          <MapWithDraw
-            onFieldCreate={handleFieldCreate}
-            onFieldEdit={handleFieldEdit}
-            drawnItems={drawnItems}
-          />
+      <div style={{ display: 'flex', gap: '20px', height: 'calc(100% - 80px)' }}>
+        {/* Map Area */}
+        <div style={{ flex: 1, position: 'relative', borderRadius: '10px', overflow: 'hidden' }}>
+          {/* Layer Switcher */}
+          <div style={{
+            position: 'absolute',
+            top: '10px',
+            left: '10px',
+            zIndex: 1000,
+            background: 'white',
+            borderRadius: '8px',
+            padding: '5px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.15)'
+          }}>
+            {Object.entries(TILE_LAYERS).map(([key, layer]) => (
+              <button
+                key={key}
+                onClick={() => setActiveLayer(key)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '8px 15px',
+                  margin: '2px 0',
+                  border: 'none',
+                  borderRadius: '5px',
+                  background: activeLayer === key ? '#27ae60' : 'transparent',
+                  color: activeLayer === key ? 'white' : '#333',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  textAlign: 'left'
+                }}
+              >
+                {layer.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Field List (top of map) */}
+          <div style={{
+            position: 'absolute',
+            top: '10px',
+            left: '100px',
+            zIndex: 1000,
+            background: 'white',
+            borderRadius: '8px',
+            padding: '10px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
+            maxHeight: '150px',
+            overflowY: 'auto'
+          }}>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>
+              Saved Fields ({savedFields.length})
+            </div>
+            {savedFields.map(field => (
+              <div
+                key={field._id}
+                onClick={() => setSelectedField(field)}
+                style={{
+                  padding: '5px 10px',
+                  margin: '2px 0',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  background: selectedField?._id === field._id ? '#e8f5e9' : 'transparent',
+                  fontSize: '12px'
+                }}
+              >
+                📍 {field.name} ({field.cropType})
+              </div>
+            ))}
+            {loading && <div style={{ fontSize: '11px', color: '#666' }}>Loading...</div>}
+          </div>
+
+          <MapContainer
+            center={[28.6139, 77.2090]}
+            zoom={10}
+            style={{ height: '100%', width: '100%' }}
+          >
+            <TileLayer
+              attribution={TILE_LAYERS[activeLayer].attribution}
+              url={TILE_LAYERS[activeLayer].url}
+            />
+
+            <MapBoundsUpdater fields={savedFields} />
+
+            {/* Saved Fields */}
+            {savedFields.map(field => (
+              <Polygon
+                key={field._id}
+                positions={polygonToLeaflet(field.geoJson)}
+                pathOptions={{
+                  color: selectedField?._id === field._id ? '#27ae60' : '#666',
+                  fillColor: selectedField?._id === field._id ? '#27ae60' : '#999',
+                  fillOpacity: selectedField?._id === field._id ? 0.4 : 0.2,
+                  weight: selectedField?._id === field._id ? 3 : 2
+                }}
+                eventHandlers={{
+                  click: () => setSelectedField(field)
+                }}
+              />
+            ))}
+
+            <FeatureGroup>
+              <EditControl
+                position="topright"
+                onCreated={(e) => handleFieldCreate({ geoJson: e.layer.toGeoJSON(), layer: e.layer })}
+                draw={{
+                  rectangle: false,
+                  circle: false,
+                  circlemarker: false,
+                  marker: false,
+                  polyline: false,
+                  polygon: {
+                    allowIntersection: false,
+                    shapeOptions: {
+                      color: '#27ae60',
+                      fillColor: '#27ae60',
+                      fillOpacity: 0.3
+                    }
+                  }
+                }}
+                edit={false}
+              />
+            </FeatureGroup>
+          </MapContainer>
 
           <div style={{
             position: 'absolute',
@@ -93,40 +343,21 @@ function FieldMap() {
             zIndex: 1000
           }}>
             <span style={{ color: '#666', fontSize: '14px' }}>
-              Click polygon icon (top right) to draw • Use layer switcher (top left) to change map style
+              Draw polygon to add new field • Click field to view details
             </span>
           </div>
         </div>
 
-        <div style={{ width: '300px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {/* Side Panel */}
+        <div style={{ width: '320px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <FieldInfoPanel
             field={selectedField}
             onClose={() => setSelectedField(null)}
             onAnalyze={handleAnalyze}
+            onDelete={handleDeleteField}
             analyzing={analyzing}
           />
           <NDVILegend />
-
-          {selectedField?.ndvi && (
-            <div style={{
-              background: 'white',
-              padding: '15px',
-              borderRadius: '10px',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-            }}>
-              <h6 style={{ marginBottom: '10px' }}>Analysis Complete</h6>
-              <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
-                NDVI: <strong>{selectedField.ndvi.toFixed(2)}</strong>
-              </p>
-              <button
-                onClick={handleAnalyze}
-                className="btn btn-outline-success btn-sm w-100"
-                disabled={analyzing}
-              >
-                {analyzing ? 'Analyzing...' : 'Refresh Analysis'}
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>

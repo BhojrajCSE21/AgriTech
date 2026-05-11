@@ -1,26 +1,48 @@
 const mongoose = require('mongoose');
 
 const fieldSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   name: {
     type: String,
     required: true
   },
   cropType: {
     type: String,
-    required: true
+    required: true,
+    default: 'Winter Wheat'
   },
   area: {
     type: Number,
     required: true
   },
-  gpsCoords: {
-    lat: { type: Number },
-    lng: { type: Number }
+  geoJson: {
+    type: {
+      type: String,
+      enum: ['Polygon'],
+      default: 'Polygon'
+    },
+    coordinates: {
+      type: [[[Number]]],
+      required: true
+    }
   },
-  boundaries: [
+  centroid: {
+    lat: Number,
+    lng: Number
+  },
+  ndvi: {
+    type: Number,
+    default: null
+  },
+  ndviHistory: [
     {
-      lat: Number,
-      lng: Number
+      value: Number,
+      date: { type: Date, default: Date.now },
+      source: { type: String, default: 'Sentinel-2' }
     }
   ],
   healthScore: {
@@ -30,6 +52,14 @@ const fieldSchema = new mongoose.Schema({
   growthStage: {
     type: String,
     default: 'Planted'
+  },
+  irrigationStatus: {
+    type: String,
+    enum: ['needs_water', 'adequate', 'excess'],
+    default: 'adequate'
+  },
+  lastAnalyzed: {
+    type: Date
   },
   createdAt: {
     type: Date,

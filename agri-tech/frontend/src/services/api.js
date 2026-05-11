@@ -30,7 +30,8 @@ export const fieldsAPI = {
   getById: (id) => api.get(`/fields/${id}`),
   create: (data) => api.post('/fields', data),
   update: (id, data) => api.put(`/fields/${id}`, data),
-  delete: (id) => api.delete(`/fields/${id}`)
+  delete: (id) => api.delete(`/fields/${id}`),
+  analyze: (id) => api.post(`/fields/${id}/analyze`)
 };
 
 export const sensorsAPI = {
