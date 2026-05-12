@@ -15,29 +15,19 @@ function Header() {
   return (
     <header className="header">
       <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-        <h2 style={{ color: '#fff', margin: 0, marginRight: 'auto' }}>🌾 CropPulse</h2>
-        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+        <h1><span style={{ fontSize: '1.2em' }}>🌾</span> CropPulse</h1>
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginLeft: 'auto' }}>
           {token ? (
             <>
-              <span style={{ color: '#fff' }}>Welcome, {user.name || user.email}</span>
-              <button
-                onClick={handleLogout}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid #fff',
-                  color: '#fff',
-                  padding: '5px 15px',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
+              <span style={{ color: 'var(--text-secondary)', fontWeight: '500' }}>Welcome, <span style={{ color: 'var(--text-primary)' }}>{user.name || user.email}</span></span>
+              <button onClick={handleLogout} className="btn-danger-modern">
                 Logout
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" style={{ color: '#fff', textDecoration: 'none' }}>Login</Link>
-              <Link to="/register" style={{ color: '#fff', textDecoration: 'none' }}>Register</Link>
+              <Link to="/login" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontWeight: '500' }}>Login</Link>
+              <Link to="/register" className="btn-modern" style={{ textDecoration: 'none' }}>Register</Link>
             </>
           )}
         </div>

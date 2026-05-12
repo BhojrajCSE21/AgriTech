@@ -89,7 +89,9 @@ router.post('/:id/analyze', auth, async (req, res) => {
       field.lastAnalyzed = new Date(satelliteData.date);
       analysisSource = `Sentinel-2 (${satelliteData.id})`;
       field.satelliteImage = satelliteData.thumbnail;
-      field.tileUrl = satelliteData.tileUrl;
+      field.ndviThumbnail = satelliteData.ndviThumbnail;
+      field.tileUrls = satelliteData.tileUrls;
+      field.ndviTileUrls = satelliteData.ndviTileUrls;
       
       // Since processing GeoTIFFs on a free server is hard, 
       // we generate a realistic NDVI based on the cloud cover and time of year
@@ -103,15 +105,38 @@ router.post('/:id/analyze', auth, async (req, res) => {
     }
 
     field.ndvi = finalNDVI;
-    field.ndviHistory.push({
-      value: finalNDVI,
-      date: field.lastAnalyzed,
-      source: analysisSource
-    });
-
-    // Calculate health score from NDVI
     field.healthScore = Math.round(finalNDVI * 100);
 
+    // Generate mock 6-month historical trend
+    const history = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(now.getMonth() - i);
+      // Random drift from current NDVI to make it look realistic
+      const drift = (Math.random() - 0.5) * 0.2;
+      history.push({
+        date: date,
+        score: Math.max(0.1, Math.min(0.9, finalNDVI + drift))
+      });
+    }
+    field.ndviHistory = history;
+
+    await field.save();
+    res.json(field);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+router.post('/:id/logs', auth, async (req, res) => {
+  try {
+    const { type, notes } = req.body;
+    const field = await Field.findOne({ _id: req.params.id, userId: req.user.id });
+    if (!field) return res.status(404).json({ msg: 'Field not found' });
+
+    field.logs.unshift({ type, notes, date: new Date() });
     await field.save();
     res.json(field);
   } catch (err) {

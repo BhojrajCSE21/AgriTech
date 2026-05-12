@@ -31,7 +31,8 @@ export const fieldsAPI = {
   create: (data) => api.post('/fields', data),
   update: (id, data) => api.put(`/fields/${id}`, data),
   delete: (id) => api.delete(`/fields/${id}`),
-  analyze: (id) => api.post(`/fields/${id}/analyze`)
+  analyze: (id) => api.post(`/fields/${id}/analyze`),
+  addLog: (id, data) => api.post(`/fields/${id}/logs`, data)
 };
 
 export const sensorsAPI = {

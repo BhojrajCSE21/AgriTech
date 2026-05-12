@@ -3,7 +3,7 @@ const axios = require('axios');
 const getCurrentWeather = async (lat, lng) => {
   try {
     const response = await axios.get(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m`
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=soil_moisture_0_to_7cm&timezone=auto`
     );
     return response.data;
   } catch (error) {
@@ -15,7 +15,7 @@ const getCurrentWeather = async (lat, lng) => {
 const getForecast = async (lat, lng) => {
   try {
     const response = await axios.get(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto`
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&timezone=auto`
     );
     return response.data;
   } catch (error) {

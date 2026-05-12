@@ -40,9 +40,8 @@ const fieldSchema = new mongoose.Schema({
   },
   ndviHistory: [
     {
-      value: Number,
-      date: { type: Date, default: Date.now },
-      source: { type: String, default: 'Sentinel-2' }
+      score: Number,
+      date: { type: Date, default: Date.now }
     }
   ],
   healthScore: {
@@ -64,9 +63,20 @@ const fieldSchema = new mongoose.Schema({
   satelliteImage: {
     type: String
   },
-  tileUrl: {
+  ndviThumbnail: {
     type: String
   },
+  tileUrls: [{
+    type: String
+  }],
+  ndviTileUrls: [{
+    type: String
+  }],
+  logs: [{
+    date: { type: Date, default: Date.now },
+    type: { type: String, required: true },
+    notes: String
+  }],
   createdAt: {
     type: Date,
     default: Date.now

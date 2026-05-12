@@ -5,6 +5,7 @@ import {
   Polygon,
   FeatureGroup,
   useMap,
+  ZoomControl
 } from "react-leaflet";
 import { EditControl } from "react-leaflet-draw";
 import L from "leaflet";
@@ -13,6 +14,7 @@ import "leaflet-draw/dist/leaflet.draw.css";
 import FieldInfoPanel from "../components/Map/FieldInfoPanel";
 import NDVILegend from "../components/Map/NDVILegend";
 import { fieldsAPI } from "../services/api";
+import BoundaryTileLayer from "../components/Map/BoundaryTileLayer";
 import "../components/Map/MapComponent.css";
 import * as turf from "@turf/turf";
 
@@ -70,6 +72,7 @@ function FieldMap() {
   const [cropType, setCropType] = useState("Winter Wheat");
   const [analyzing, setAnalyzing] = useState(false);
   const [activeLayer, setActiveLayer] = useState("satellite");
+  const [mapMode, setMapMode] = useState("visual"); // visual or ndvi
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -190,7 +193,7 @@ function FieldMap() {
   };
 
   return (
-    <div style={{ padding: "20px", height: "calc(100vh - 80px)" }}>
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <div
         style={{
           display: "flex",
@@ -199,20 +202,20 @@ function FieldMap() {
           marginBottom: "20px",
         }}
       >
-        <h2 style={{ margin: 0 }}>My Fields</h2>
+        <h2 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>My Fields</h2>
         <div style={{ display: "flex", gap: "10px" }}>
           <input
             type="text"
             placeholder="Field name"
             value={fieldName}
             onChange={(e) => setFieldName(e.target.value)}
-            className="form-control"
+            className="input-modern"
             style={{ width: "200px" }}
           />
           <select
             value={cropType}
             onChange={(e) => setCropType(e.target.value)}
-            className="form-control"
+            className="input-modern"
             style={{ width: "150px" }}
           >
             <option value="Winter Wheat">Winter Wheat</option>
@@ -224,7 +227,7 @@ function FieldMap() {
       </div>
 
       <div
-        style={{ display: "flex", gap: "20px", height: "calc(100% - 80px)" }}
+        style={{ display: "flex", gap: "20px", flex: 1, minHeight: 0 }}
       >
         {/* Map Area */}
         <div
@@ -233,6 +236,7 @@ function FieldMap() {
             position: "relative",
             borderRadius: "10px",
             overflow: "hidden",
+            height: "100%",
           }}
         >
           {/* Layer Switcher */}
@@ -323,7 +327,9 @@ function FieldMap() {
             center={[28.6139, 77.209]}
             zoom={10}
             style={{ height: "100%", width: "100%" }}
+            zoomControl={false}
           >
+            <ZoomControl position="bottomright" />
             <TileLayer
               attribution={TILE_LAYERS[activeLayer].attribution}
               url={TILE_LAYERS[activeLayer].url}
@@ -349,14 +355,17 @@ function FieldMap() {
               />
             ))}
 
-            {/* Satellite Pass Overlay for Selected Field */}
-            {selectedField?.tileUrl && (
-              <TileLayer
-                url={selectedField.tileUrl}
+            {/* Canvas Cropped Satellite Overlay */}
+            {selectedField?.tileUrls && selectedField.geoJson && 
+              (mapMode === "visual" ? selectedField.tileUrls : (selectedField.ndviTileUrls || selectedField.tileUrls)).map((url, index) => (
+              <BoundaryTileLayer
+                key={`sat-${selectedField._id}-${index}-${mapMode}`}
+                url={url}
+                boundary={selectedField.geoJson}
                 zIndex={10}
-                opacity={0.8}
+                opacity={1}
               />
-            )}
+            ))}
 
             <FeatureGroup>
               <EditControl
@@ -382,7 +391,10 @@ function FieldMap() {
                     },
                   },
                 }}
-                edit={false}
+                edit={{
+                  edit: true,
+                  remove: true
+                }}
               />
             </FeatureGroup>
           </MapContainer>
@@ -407,10 +419,12 @@ function FieldMap() {
         {/* Side Panel */}
         <div
           style={{
-            width: "320px",
+            width: "340px",
             display: "flex",
             flexDirection: "column",
-            gap: "10px",
+            gap: "15px",
+            height: "100%",
+            paddingRight: "5px"
           }}
         >
           <FieldInfoPanel
@@ -419,8 +433,9 @@ function FieldMap() {
             onAnalyze={handleAnalyze}
             onDelete={handleDeleteField}
             analyzing={analyzing}
+            mapMode={mapMode}
+            setMapMode={setMapMode}
           />
-          <NDVILegend />
         </div>
       </div>
     </div>

@@ -1,78 +1,199 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Modern Color Palette */
+  --primary-color: #10b981; /* Emerald Green */
+  --primary-dark: #059669;
+  --primary-light: #d1fae5;
+  --secondary-color: #3b82f6; /* Blue */
+  --bg-color: #f3f4f6; /* Very light gray */
+  --sidebar-bg: rgba(255, 255, 255, 0.85); /* Glassmorphism */
+  --header-bg: rgba(255, 255, 255, 0.9);
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+  
+  /* Utilities */
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #f5f6fa;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  /* Optional: a subtle background pattern or gradient for the main body */
+  background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 .app-container {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .app-content {
   display: flex;
   flex: 1;
+  padding-top: 70px; /* Space for fixed header */
+  height: calc(100vh - 70px);
 }
 
 .main-content {
   flex: 1;
-  padding: 20px;
-  margin-left: 250px;
-  margin-top: 60px;
+  padding: 24px;
+  margin-left: 260px; /* Space for fixed sidebar */
+  transition: all 0.3s ease;
+  height: 100%;
+  overflow-y: auto;
 }
 
+/* Glassmorphism Sidebar */
 .sidebar {
   position: fixed;
-  top: 60px;
+  top: 70px;
   left: 0;
-  width: 250px;
-  height: calc(100vh - 60px);
-  background: #2c3e50;
-  padding: 20px 0;
+  width: 260px;
+  height: calc(100vh - 70px);
+  background: var(--sidebar-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-right: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 24px 16px;
+  z-index: 100;
+  box-shadow: var(--glass-shadow);
 }
 
 .sidebar-link {
   display: flex;
   align-items: center;
-  padding: 15px 25px;
-  color: #ecf0f1;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
   text-decoration: none;
-  transition: all 0.3s;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
 }
 
 .sidebar-link:hover,
 .sidebar-link.active {
-  background: #34495e;
-  border-left: 4px solid #27ae60;
+  background: var(--primary-light);
+  color: var(--primary-dark);
 }
 
+/* Glassmorphism Header */
 .header {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 60px;
-  background: #27ae60;
+  height: 70px;
+  background: var(--header-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
-  padding: 0 25px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  justify-content: space-between;
+  padding: 0 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: var(--shadow-sm);
   z-index: 1000;
 }
 
-.card {
-  border: none;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+.header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
 }
 
-.card-header {
-  background: #fff;
-  border-bottom: 1px solid #eee;
+/* Modern Cards */
+.card {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Buttons */
+.btn-modern {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+}
+
+.btn-modern:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 8px -1px rgba(16, 185, 129, 0.3);
+}
+
+.btn-danger-modern {
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid #ef4444;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-danger-modern:hover {
+  background: #fee2e2;
+}
+
+/* Inputs */
+.input-modern {
+  width: 100%;
+  padding: 10px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  transition: all 0.2s;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.input-modern:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+/* Leaflet Overrides */
+.leaflet-container {
+  font-family: 'Inter', sans-serif !important;
+}
+
+.leaflet-control-zoom {
+  border: none !important;
+  box-shadow: var(--shadow-md) !important;
+  border-radius: var(--radius-sm) !important;
+  overflow: hidden;
 }
