@@ -61,6 +61,12 @@ const fieldSchema = new mongoose.Schema({
   lastAnalyzed: {
     type: Date
   },
+  satelliteImage: {
+    type: String
+  },
+  tileUrl: {
+    type: String
+  },
   createdAt: {
     type: Date,
     default: Date.now

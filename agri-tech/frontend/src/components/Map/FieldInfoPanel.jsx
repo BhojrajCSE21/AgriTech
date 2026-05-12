@@ -106,7 +106,18 @@ function FieldInfoPanel({ field, onClose, onAnalyze, onDelete, analyzing }) {
               Analyzed: {new Date(field.lastAnalyzed).toLocaleDateString()}
             </div>
           )}
+          {field.satelliteImage && (
+            <div style={{ marginTop: '10px' }}>
+              <label style={{ fontWeight: 'bold', color: '#666', fontSize: '11px', textTransform: 'uppercase' }}>Satellite View</label>
+              <img 
+                src={field.satelliteImage} 
+                alt="Satellite thumbnail" 
+                style={{ width: '100%', borderRadius: '5px', marginTop: '5px', border: '1px solid #ddd' }} 
+              />
+            </div>
+          )}
         </div>
+
 
         <div>
           <label style={{ fontWeight: 'bold', color: '#666', fontSize: '11px', textTransform: 'uppercase' }}>Health Score</label>

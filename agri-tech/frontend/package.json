@@ -10,6 +10,7 @@
     "eject": "react-scripts eject"
   },
   "dependencies": {
+    "@turf/turf": "^7.3.5",
     "axios": "^1.6.0",
     "bootstrap": "^5.3.0",
     "leaflet": "^1.9.4",
