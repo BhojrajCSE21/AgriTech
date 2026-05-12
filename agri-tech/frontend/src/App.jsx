@@ -4,6 +4,7 @@ import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
 import Dashboard from './pages/Dashboard';
 import FieldMap from './pages/FieldMap';
+import AICenter from './pages/AICenter';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
@@ -17,6 +18,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/map" element={<FieldMap />} />
+            <Route path="/ai" element={<AICenter />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
           </Routes>

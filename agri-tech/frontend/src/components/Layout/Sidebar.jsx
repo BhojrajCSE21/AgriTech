@@ -10,6 +10,9 @@ function Sidebar() {
       <NavLink to="/map" className="sidebar-link">
         <span>🗺️</span> Field Map
       </NavLink>
+      <NavLink to="/ai" className="sidebar-link">
+        <span>🤖</span> AI Center
+      </NavLink>
     </div>
   );
 }

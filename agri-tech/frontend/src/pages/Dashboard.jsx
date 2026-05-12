@@ -62,6 +62,7 @@ function Dashboard() {
     return acc;
   }, {});
 
+
   const pieData = Object.entries(cropDistribution).map(([name, value]) => ({ name, value }));
   const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -125,6 +126,8 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
+
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px' }}>
         {/* Field Performance List */}

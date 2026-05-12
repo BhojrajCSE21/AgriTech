@@ -48,7 +48,9 @@ export const weatherAPI = {
 };
 
 export const aiAPI = {
-  analyzeCrop: (image) => api.post('/ai/crop-health', { image }),
+  analyzeCrop: (formData) => api.post('/ai/diagnose', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   predictYield: (fieldId) => api.get(`/ai/yield-prediction/${fieldId}`)
 };
 

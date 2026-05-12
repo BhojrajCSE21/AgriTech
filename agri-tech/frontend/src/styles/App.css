@@ -197,3 +197,10 @@ body {
   border-radius: var(--radius-sm) !important;
   overflow: hidden;
 }
+
+/* AI Scanner Animation */
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  50% { transform: translateY(80px); }
+  100% { transform: translateY(-100%); }
+}

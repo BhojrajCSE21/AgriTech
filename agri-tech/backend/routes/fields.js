@@ -122,6 +122,32 @@ router.post('/:id/analyze', auth, async (req, res) => {
     }
     field.ndviHistory = history;
 
+    // AI Yield Prediction Engine (Mathematical Model)
+    // 1. Establish baselines
+    const cropYields = {
+      'Winter Wheat': { yieldPerHa: 3.5, pricePerTon: 220 },
+      'Corn': { yieldPerHa: 10.5, pricePerTon: 180 },
+      'Soybeans': { yieldPerHa: 3.2, pricePerTon: 450 }
+    };
+    
+    const cropData = cropYields[field.cropType] || cropYields['Winter Wheat'];
+    
+    // 2. Health Modifier (NDVI)
+    // Optimal NDVI is > 0.75. Lower NDVI linearly reduces the yield.
+    const healthModifier = Math.min(1.0, Math.max(0.2, (finalNDVI / 0.75)));
+    
+    // 3. Weather Modifier (Mocked as randomly favorable or slightly unfavorable based on the day)
+    const weatherModifier = 0.9 + (Math.random() * 0.2); // 0.9x to 1.1x
+
+    // 4. Calculate Final Prediction
+    const predictedTons = field.area * cropData.yieldPerHa * healthModifier * weatherModifier;
+    const predictedRevenue = predictedTons * cropData.pricePerTon;
+
+    field.yieldForecast = {
+      tons: predictedTons,
+      revenue: predictedRevenue
+    };
+
     await field.save();
     res.json(field);
   } catch (err) {

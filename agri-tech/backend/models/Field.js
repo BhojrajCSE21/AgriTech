@@ -52,6 +52,10 @@ const fieldSchema = new mongoose.Schema({
     type: String,
     default: 'Planted'
   },
+  yieldForecast: {
+    tons: { type: Number, default: 0 },
+    revenue: { type: Number, default: 0 }
+  },
   irrigationStatus: {
     type: String,
     enum: ['needs_water', 'adequate', 'excess'],

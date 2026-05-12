@@ -23,6 +23,7 @@ function FieldInfoPanel({ field, onClose, onAnalyze, onDelete, analyzing, mapMod
   const [logLoading, setLogLoading] = useState(false);
   const [displayLogs, setDisplayLogs] = useState(field?.logs || []);
 
+
   useEffect(() => {
     setDisplayLogs(field?.logs || []);
   }, [field?.logs]);
@@ -102,6 +103,8 @@ function FieldInfoPanel({ field, onClose, onAnalyze, onDelete, analyzing, mapMod
       setLogLoading(false);
     }
   };
+
+
 
   return (
     <div className="card" style={{ padding: '0', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -374,6 +377,8 @@ function FieldInfoPanel({ field, onClose, onAnalyze, onDelete, analyzing, mapMod
             </div>
           )}
         </div>
+
+
 
         <div style={{ marginTop: '10px' }}>
           <label style={{ fontWeight: 'bold', color: '#666', fontSize: '11px', textTransform: 'uppercase' }}>Activity Logbook</label>
