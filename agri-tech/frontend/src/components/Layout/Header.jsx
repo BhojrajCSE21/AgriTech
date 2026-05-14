@@ -15,11 +15,21 @@ function Header() {
   return (
     <header className="header">
       <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-        <h1><span style={{ fontSize: '1.2em' }}>🌾</span> CropPulse</h1>
+        <h1>
+          <span className="brand-mark" style={{ fontSize: '1.05em' }}>🌾</span>
+          CropPulse
+        </h1>
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginLeft: 'auto' }}>
           {token ? (
             <>
-              <span style={{ color: 'var(--text-secondary)', fontWeight: '500' }}>Welcome, <span style={{ color: 'var(--text-primary)' }}>{user.name || user.email}</span></span>
+              <div className="profile-pill">
+                <span className="profile-avatar">
+                  {(user.name || user.email || 'U').slice(0, 1).toUpperCase()}
+                </span>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>
+                  Welcome, <span style={{ color: 'var(--text-primary)' }}>{user.name || user.email}</span>
+                </span>
+              </div>
               <button onClick={handleLogout} className="btn-danger-modern">
                 Logout
               </button>

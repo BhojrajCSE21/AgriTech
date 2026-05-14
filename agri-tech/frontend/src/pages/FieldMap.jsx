@@ -45,24 +45,28 @@ const TILE_LAYERS = {
   },
 };
 
-function MapBoundsUpdater({ fields }) {
+const INDIA_CENTER = [22.9734, 78.6569];
+const INDIA_BOUNDS = [
+  [6.5, 67],
+  [37.5, 98],
+];
+
+function MapBoundsUpdater({ fields, selectedField }) {
   const map = useMap();
 
   useEffect(() => {
-    if (fields.length > 0) {
-      const allCoords = [];
-      fields.forEach((field) => {
-        if (field.geoJson?.coordinates?.[0]) {
-          field.geoJson.coordinates[0].forEach((coord) => {
-            allCoords.push([coord[1], coord[0]]);
-          });
-        }
-      });
-      if (allCoords.length > 0) {
-        map.fitBounds(allCoords, { padding: [50, 50] });
-      }
+    if (selectedField?.geoJson?.coordinates?.[0]) {
+      const coords = selectedField.geoJson.coordinates[0].map((coord) => [
+        coord[1],
+        coord[0],
+      ]);
+      map.fitBounds(coords, { padding: [70, 70], maxZoom: 16 });
+      return;
     }
-  }, [fields, map]);
+    if (fields.length === 0) {
+      map.fitBounds(INDIA_BOUNDS, { padding: [20, 20] });
+    }
+  }, [fields.length, selectedField, map]);
 
   return null;
 }
@@ -295,9 +299,7 @@ function FieldMap() {
           marginBottom: "20px",
         }}
       >
-        <h2
-          style={{ margin: 0, fontWeight: 700, color: "var(--text-primary)" }}
-        >
+        <h2 className="page-title">
           My Fields
         </h2>
         <div style={{ display: "flex", gap: "10px" }}>
@@ -326,24 +328,26 @@ function FieldMap() {
       <div style={{ display: "flex", gap: "20px", flex: 1, minHeight: 0 }}>
         {/* Map Area */}
         <div
+          className="map-shell"
           style={{
             flex: 1,
             position: "relative",
-            borderRadius: "16px",
+            borderRadius: "24px",
             overflow: "hidden",
             height: "725px", // Increased height
-            boxShadow: "0 4px 24px rgba(0,0,0,0.1)",
+            boxShadow: "0 24px 64px rgba(15,23,42,0.16)",
           }}
         >
           {/* Modern Layer Switcher (Bottom Center) */}
           <div
+            className="glass-panel layer-switcher"
             style={{
               position: "absolute",
               bottom: "24px",
               left: "50%",
               transform: "translateX(-50%)",
               zIndex: 1000,
-              background: "rgba(255, 255, 255, 0.7)",
+              background: "rgba(255, 255, 255, 0.72)",
               backdropFilter: "blur(12px)",
               WebkitBackdropFilter: "blur(12px)",
               borderRadius: "16px",
@@ -357,6 +361,7 @@ function FieldMap() {
             {Object.entries(TILE_LAYERS).map(([key, layer]) => (
               <button
                 key={key}
+                className="layer-button"
                 onClick={() => setActiveLayer(key)}
                 style={{
                   padding: "8px 16px",
@@ -387,45 +392,49 @@ function FieldMap() {
 
           {/* Field List (top of map) */}
           <div
+            className="glass-panel field-list-card"
             style={{
               position: "absolute",
-              top: "10px",
-              left: "100px",
+              top: "16px",
+              left: "16px",
               zIndex: 1000,
-              background: "white",
-              borderRadius: "8px",
+              background: "rgba(255,255,255,0.76)",
+              borderRadius: "18px",
               padding: "10px",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+              boxShadow: "0 18px 48px rgba(15,23,42,0.15)",
               maxHeight: "150px",
               overflowY: "auto",
             }}
           >
-            <div
-              style={{
-                fontSize: "12px",
-                fontWeight: "bold",
-                marginBottom: "5px",
-              }}
-            >
-              Saved Fields ({savedFields.length})
+            <div className="field-list-header">
+              <div>
+                <div className="field-list-title">Saved Fields</div>
+                <div className="field-list-subtitle">{savedFields.length} active plots</div>
+              </div>
+              <span className="field-count-pill">{savedFields.length}</span>
             </div>
             {savedFields.map((field) => (
               <div
                 key={field._id}
+                className="field-list-item"
                 onClick={() => setSelectedField(field)}
                 style={{
-                  padding: "5px 10px",
-                  margin: "2px 0",
-                  borderRadius: "5px",
+                  padding: "8px 10px",
+                  margin: "4px 0",
+                  borderRadius: "12px",
                   cursor: "pointer",
                   background:
                     selectedField?._id === field._id
-                      ? "#e8f5e9"
+                      ? "rgba(209,250,229,0.9)"
                       : "transparent",
                   fontSize: "12px",
                 }}
               >
-                📍 {field.name} ({field.cropType})
+                <span className="field-pin">•</span>
+                <span style={{ minWidth: 0 }}>
+                  <span className="field-name-text">{field.name}</span>
+                  <span className="field-crop-text">{field.cropType}</span>
+                </span>
               </div>
             ))}
             {loading && (
@@ -433,8 +442,16 @@ function FieldMap() {
             )}
           </div>
 
+          <div className="glass-panel draw-helper">
+            <div className="draw-helper-icon">✚</div>
+            <div>
+              <div className="draw-helper-title">Draw a Field</div>
+              <div className="draw-helper-text">Enter a name, then use the toolbar to sketch a boundary.</div>
+            </div>
+          </div>
+
           <MapContainer
-            center={[20.5937, 78.9629]}
+            center={INDIA_CENTER}
             zoom={5}
             minZoom={3}
             maxBounds={[
@@ -454,7 +471,7 @@ function FieldMap() {
               zIndex={1}
             />
 
-            <MapBoundsUpdater fields={savedFields} />
+            <MapBoundsUpdater fields={savedFields} selectedField={selectedField} />
 
             {/* Canvas Cropped Satellite Overlay */}
             {overlayTileUrls.length > 0 &&

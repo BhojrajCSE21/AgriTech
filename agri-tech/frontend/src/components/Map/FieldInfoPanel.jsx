@@ -61,15 +61,9 @@ function FieldInfoPanel({ field, onClose, onAnalyze, onDelete, analyzing, mapMod
 
   if (!field) {
     return (
-      <div style={{
-        background: 'white',
-        padding: '20px',
-        borderRadius: '10px',
-        boxShadow: '0 2px 15px rgba(0,0,0,0.1)',
-        textAlign: 'center'
-      }}>
-        <div style={{ fontSize: '48px', marginBottom: '10px' }}>📍</div>
-        <p style={{ color: '#666', margin: 0 }}>
+      <div className="card field-empty-card">
+        <div className="field-empty-icon">📍</div>
+        <p style={{ color: '#475569', margin: 0 }}>
           Select a field from the map or draw a new one to see details
         </p>
       </div>
@@ -113,18 +107,19 @@ function FieldInfoPanel({ field, onClose, onAnalyze, onDelete, analyzing, mapMod
 
 
   return (
-    <div className="card" style={{ padding: '0', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="card field-details-card" style={{ padding: '0', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Sticky Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 12px 0 12px', marginBottom: '10px' }}>
-        <h5 style={{ margin: 0 }}>Field Details</h5>
+      <div className="field-details-header">
+        <div>
+          <div className="field-details-kicker">Precision Plot</div>
+          <h5 style={{ margin: 0 }}>Field Details</h5>
+        </div>
         <button
           onClick={onClose}
+          className="field-close-button"
           style={{
-            background: 'none',
-            border: 'none',
             fontSize: '20px',
             cursor: 'pointer',
-            color: '#666'
           }}
         >
           ×
@@ -133,29 +128,26 @@ function FieldInfoPanel({ field, onClose, onAnalyze, onDelete, analyzing, mapMod
 
       {/* Scrollable Content */}
       <div style={{ padding: '0 12px 12px 12px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '45%' }}>
+        <div className="field-meta-grid">
+          <div className="field-meta-cell">
             <label style={{ fontWeight: 'bold', color: '#666', fontSize: '10px', textTransform: 'uppercase' }}>Field Name</label>
             <div style={{ fontSize: '14px', fontWeight: '500' }}>{field.name}</div>
           </div>
-          <div style={{ flex: 1, minWidth: '45%' }}>
+          <div className="field-meta-cell">
             <label style={{ fontWeight: 'bold', color: '#666', fontSize: '10px', textTransform: 'uppercase' }}>Crop Type</label>
             <div style={{ fontSize: '14px' }}>{field.cropType}</div>
           </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <div>
+          <div className="field-meta-cell">
             <label style={{ fontWeight: 'bold', color: '#666', fontSize: '10px', textTransform: 'uppercase' }}>Area</label>
             <div style={{ fontSize: '14px' }}>{field.area} ha</div>
           </div>
-          <div>
+          <div className="field-meta-cell">
             <label style={{ fontWeight: 'bold', color: '#666', fontSize: '10px', textTransform: 'uppercase' }}>Growth</label>
             <div style={{ fontSize: '14px', fontWeight: '500' }}>{field.growthStage || 'Planted'}</div>
           </div>
         </div>
 
-        <div style={{
+        <div className="metric-panel" style={{
           background: field.ndvi ? `linear-gradient(135deg, ${getNDVIColor(field.ndvi)}15, ${getNDVIColor(field.ndvi)}30)` : '#f3f4f6',
           padding: '10px',
           borderRadius: 'var(--radius-md)',
@@ -191,7 +183,7 @@ function FieldInfoPanel({ field, onClose, onAnalyze, onDelete, analyzing, mapMod
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <label style={{ fontWeight: 'bold', color: '#666', fontSize: '11px', textTransform: 'uppercase' }}>Satellite View</label>
                 {hasVisualTileUrls && (
-                  <div style={{ display: 'flex', background: '#e2e8f0', borderRadius: '4px', padding: '2px' }}>
+                  <div className="segmented-control" style={{ display: 'flex', background: '#e2e8f0', borderRadius: '4px', padding: '2px' }}>
                     <button
                       onClick={() => setMapMode('visual')}
                       style={{
@@ -226,6 +218,7 @@ function FieldInfoPanel({ field, onClose, onAnalyze, onDelete, analyzing, mapMod
                 )}
               </div>
               <img 
+                className="satellite-preview"
                 src={mapMode === 'ndvi' && field.ndviThumbnail ? field.ndviThumbnail : field.satelliteImage} 
                 alt="Satellite thumbnail" 
                 style={{ width: '100%', borderRadius: '5px', marginTop: '5px', border: '1px solid #ddd' }} 
