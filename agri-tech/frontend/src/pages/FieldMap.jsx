@@ -6,6 +6,7 @@ import {
   FeatureGroup,
   useMap,
   ZoomControl,
+  SVGOverlay,
 } from "react-leaflet";
 import { EditControl } from "react-leaflet-draw";
 import L from "leaflet";
@@ -78,6 +79,32 @@ function FieldMap() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const normalizeTileUrl = (url) =>
+    url
+      .trim()
+      .replace("{y}@1x", "{y}.png")
+      .replace(/\/(\d+)@1x(?=\?)/, "/$1.png")
+      .replace(/([?&])rescale=0(?:%2C|,)3000&?/i, "$1")
+      .replace("?&", "?")
+      .replace(/[?&]$/, "");
+
+  const getValidTileUrls = (urls) =>
+    (urls || [])
+      .filter((url) => typeof url === "string" && url.trim())
+      .map(normalizeTileUrl);
+
+  const visualTileUrls = getValidTileUrls(selectedField?.tileUrls);
+  const ndviTileUrls = getValidTileUrls(selectedField?.ndviTileUrls);
+  const overlayTileUrls =
+    mapMode === "ndvi"
+      ? ndviTileUrls.length > 0
+        ? ndviTileUrls
+        : visualTileUrls
+      : visualTileUrls;
+  const isFallbackHeatmap = mapMode === "ndvi" && ndviTileUrls.length === 0;
+  const selectedFieldBounds = getPolygonBounds(selectedField?.geoJson);
+  const selectedFieldSvgPoints = getPolygonSvgPoints(selectedField?.geoJson);
+
   useEffect(() => {
     loadFields();
   }, []);
@@ -136,6 +163,14 @@ function FieldMap() {
       setSavedFields([res.data, ...savedFields]);
       setSelectedField(res.data);
       setFieldName("");
+      if (layer?.setStyle) {
+        layer.setStyle({
+          fillOpacity: 0,
+          fillColor: "transparent",
+          color: "#10b981",
+          weight: 3,
+        });
+      }
     } catch (err) {
       console.error("Failed to save field:", err);
       alert("Failed to save field. Please login first.");
@@ -193,6 +228,38 @@ function FieldMap() {
     if (!geoJson?.coordinates?.[0]) return [];
     return geoJson.coordinates[0].map((coord) => [coord[1], coord[0]]);
   };
+
+  function getPolygonBounds(geoJson) {
+    if (!geoJson?.coordinates?.[0]?.length) return null;
+    const coords = geoJson.coordinates[0];
+    const lngs = coords.map((coord) => coord[0]);
+    const lats = coords.map((coord) => coord[1]);
+    return [
+      [Math.min(...lats), Math.min(...lngs)],
+      [Math.max(...lats), Math.max(...lngs)],
+    ];
+  }
+
+  function getPolygonSvgPoints(geoJson) {
+    if (!geoJson?.coordinates?.[0]?.length) return "";
+    const coords = geoJson.coordinates[0];
+    const lngs = coords.map((coord) => coord[0]);
+    const lats = coords.map((coord) => coord[1]);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const width = maxLng - minLng || 1;
+    const height = maxLat - minLat || 1;
+
+    return coords
+      .map(([lng, lat]) => {
+        const x = (lng - minLng) / width;
+        const y = (maxLat - lat) / height;
+        return `${x.toFixed(4)},${y.toFixed(4)}`;
+      })
+      .join(" ");
+  }
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -366,20 +433,52 @@ function FieldMap() {
             <MapBoundsUpdater fields={savedFields} />
 
             {/* Canvas Cropped Satellite Overlay */}
-            {selectedField?.tileUrls &&
+            {overlayTileUrls.length > 0 &&
               selectedField.geoJson &&
-              (mapMode === "visual"
-                ? selectedField.tileUrls
-                : selectedField.ndviTileUrls || selectedField.tileUrls
-              ).map((url, index) => (
+              overlayTileUrls.map((url, index) => (
                 <BoundaryTileLayer
                   key={`sat-overlay-${selectedField._id}-${index}-${mapMode}`}
                   url={url}
                   boundary={selectedField.geoJson}
-                  zIndex={100}
+                  crossOrigin={true}
+                  zIndex={350}
                   opacity={1}
+                  className={isFallbackHeatmap ? "ndvi-heatmap-tile" : ""}
                 />
               ))}
+
+            {selectedField?.satelliteImage &&
+              selectedFieldBounds &&
+              selectedFieldSvgPoints && (
+                <SVGOverlay
+                  key={`sat-image-${selectedField._id}-${mapMode}`}
+                  bounds={selectedFieldBounds}
+                  opacity={mapMode === "ndvi" ? 0.75 : 0.95}
+                  zIndex={330}
+                  className={isFallbackHeatmap ? "ndvi-heatmap-tile" : ""}
+                >
+                  <defs>
+                    <clipPath
+                      id={`field-clip-${selectedField._id}`}
+                      clipPathUnits="objectBoundingBox"
+                    >
+                      <polygon points={selectedFieldSvgPoints} />
+                    </clipPath>
+                  </defs>
+                  <image
+                    href={
+                      mapMode === "ndvi"
+                        ? selectedField.ndviThumbnail ||
+                          selectedField.satelliteImage
+                        : selectedField.satelliteImage
+                    }
+                    width="100%"
+                    height="100%"
+                    preserveAspectRatio="none"
+                    clipPath={`url(#field-clip-${selectedField._id})`}
+                  />
+                </SVGOverlay>
+              )}
 
             <FeatureGroup>
               <EditControl
@@ -443,6 +542,7 @@ function FieldMap() {
                     fillOpacity: 0,
                     weight: selectedField?._id === field._id ? 3 : 1,
                     dashArray: selectedField?._id === field._id ? "" : "5, 5",
+                    pane: "overlayPane",
                   }}
                   eventHandlers={{
                     click: () => setSelectedField(field),

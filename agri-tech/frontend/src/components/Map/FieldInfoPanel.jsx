@@ -22,6 +22,9 @@ function FieldInfoPanel({ field, onClose, onAnalyze, onDelete, analyzing, mapMod
   const [logNotes, setLogNotes] = useState('');
   const [logLoading, setLogLoading] = useState(false);
   const [displayLogs, setDisplayLogs] = useState(field?.logs || []);
+  const hasVisualTileUrls = (field?.tileUrls || []).some(
+    (url) => typeof url === 'string' && url.trim()
+  );
 
 
   useEffect(() => {
@@ -184,7 +187,7 @@ function FieldInfoPanel({ field, onClose, onAnalyze, onDelete, analyzing, mapMod
             <div style={{ marginTop: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <label style={{ fontWeight: 'bold', color: '#666', fontSize: '11px', textTransform: 'uppercase' }}>Satellite View</label>
-                {field.ndviTileUrls && field.ndviTileUrls.length > 0 && (
+                {hasVisualTileUrls && (
                   <div style={{ display: 'flex', background: '#e2e8f0', borderRadius: '4px', padding: '2px' }}>
                     <button
                       onClick={() => setMapMode('visual')}

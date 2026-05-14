@@ -90,8 +90,8 @@ router.post('/:id/analyze', auth, async (req, res) => {
       analysisSource = `Sentinel-2 (${satelliteData.id})`;
       field.satelliteImage = satelliteData.thumbnail;
       field.ndviThumbnail = satelliteData.ndviThumbnail;
-      field.tileUrls = satelliteData.tileUrls;
-      field.ndviTileUrls = satelliteData.ndviTileUrls;
+      field.tileUrls = (satelliteData.tileUrls || []).filter(Boolean);
+      field.ndviTileUrls = (satelliteData.ndviTileUrls || []).filter(Boolean);
       
       // Since processing GeoTIFFs on a free server is hard, 
       // we generate a realistic NDVI based on the cloud cover and time of year

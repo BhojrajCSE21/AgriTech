@@ -7,7 +7,7 @@ const STAC_API_URL = "https://earth-search.aws.element84.com/v1";
 // TiTiler — a public, high-performance tile server for Cloud Optimized GeoTIFFs (COGs)
 // This replaces the unreliable Planetary Computer tile server.
 const TITILER_URL =
-  "https://titiler.xyz/cog/tiles/WebMercatorQuad/{z}/{x}/{y}@1x";
+  "https://titiler.xyz/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png";
 
 /**
  * Helper: retry a function with exponential backoff.
@@ -86,7 +86,7 @@ exports.getLatestSentinelData = async (geometry) => {
       // visual COG (true color) - used for the visual overlay
       const visualCOG = assets.visual?.href || assets.TCI?.href || null;
       const tileUrl = visualCOG
-        ? `${TITILER_URL}?url=${encodeURIComponent(visualCOG)}&rescale=0,3000`
+        ? `${TITILER_URL}?url=${encodeURIComponent(visualCOG)}`
         : null;
 
       // try to locate a single multiband scene COG first, otherwise check for separate band assets
@@ -120,8 +120,8 @@ exports.getLatestSentinelData = async (geometry) => {
         thumbnail: thumbnail,
         ndviThumbnail: thumbnail,
         id: latestScene.id,
-        tileUrls: [tileUrl], // Array format expected by frontend
-        ndviTileUrls: [ndviTileUrl],
+        tileUrls: [tileUrl].filter(Boolean), // Array format expected by frontend
+        ndviTileUrls: [ndviTileUrl].filter(Boolean),
       };
     }
 
