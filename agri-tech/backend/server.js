@@ -10,6 +10,7 @@ const fieldRoutes = require('./routes/fields');
 const sensorRoutes = require('./routes/sensors');
 const weatherRoutes = require('./routes/weather');
 const aiRoutes = require('./routes/ai');
+const marketRoutes = require('./routes/market');
 
 const app = express();
 const server = http.createServer(app);
@@ -27,6 +28,7 @@ app.use('/api/fields', fieldRoutes);
 app.use('/api/sensors', sensorRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/market', marketRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

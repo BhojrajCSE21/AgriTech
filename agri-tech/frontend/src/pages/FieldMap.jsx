@@ -5,7 +5,7 @@ import {
   Polygon,
   FeatureGroup,
   useMap,
-  ZoomControl
+  ZoomControl,
 } from "react-leaflet";
 import { EditControl } from "react-leaflet-draw";
 import L from "leaflet";
@@ -30,15 +30,17 @@ const TILE_LAYERS = {
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   },
-  positron: {
-    name: "Light",
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
-    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+  mapboxStreets: {
+    name: "Mapbox Streets",
+    attribution:
+      '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
+    url: `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/256/{z}/{x}/{y}?access_token=${process.env.REACT_APP_MAPBOX_TOKEN}`,
   },
-  dark: {
-    name: "Dark",
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+  mapboxSatellite: {
+    name: "Mapbox Satellite",
+    attribution:
+      '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
+    url: `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}?access_token=${process.env.REACT_APP_MAPBOX_TOKEN}`,
   },
 };
 
@@ -202,7 +204,11 @@ function FieldMap() {
           marginBottom: "20px",
         }}
       >
-        <h2 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>My Fields</h2>
+        <h2
+          style={{ margin: 0, fontWeight: 700, color: "var(--text-primary)" }}
+        >
+          My Fields
+        </h2>
         <div style={{ display: "flex", gap: "10px" }}>
           <input
             type="text"
@@ -226,30 +232,35 @@ function FieldMap() {
         </div>
       </div>
 
-      <div
-        style={{ display: "flex", gap: "20px", flex: 1, minHeight: 0 }}
-      >
+      <div style={{ display: "flex", gap: "20px", flex: 1, minHeight: 0 }}>
         {/* Map Area */}
         <div
           style={{
             flex: 1,
             position: "relative",
-            borderRadius: "10px",
+            borderRadius: "16px",
             overflow: "hidden",
-            height: "100%",
+            height: "725px", // Increased height
+            boxShadow: "0 4px 24px rgba(0,0,0,0.1)",
           }}
         >
-          {/* Layer Switcher */}
+          {/* Modern Layer Switcher (Bottom Center) */}
           <div
             style={{
               position: "absolute",
-              top: "10px",
-              left: "10px",
+              bottom: "24px",
+              left: "50%",
+              transform: "translateX(-50%)",
               zIndex: 1000,
-              background: "white",
-              borderRadius: "8px",
-              padding: "5px",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+              background: "rgba(255, 255, 255, 0.7)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              borderRadius: "16px",
+              padding: "6px",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+              display: "flex",
+              gap: "4px",
+              border: "1px solid rgba(255, 255, 255, 0.3)",
             }}
           >
             {Object.entries(TILE_LAYERS).map(([key, layer]) => (
@@ -257,19 +268,27 @@ function FieldMap() {
                 key={key}
                 onClick={() => setActiveLayer(key)}
                 style={{
-                  display: "block",
-                  width: "100%",
-                  padding: "8px 15px",
-                  margin: "2px 0",
+                  padding: "8px 16px",
                   border: "none",
-                  borderRadius: "5px",
-                  background: activeLayer === key ? "#27ae60" : "transparent",
-                  color: activeLayer === key ? "white" : "#333",
+                  borderRadius: "12px",
+                  background: activeLayer === key ? "#10b981" : "transparent",
+                  color: activeLayer === key ? "white" : "#475569",
                   cursor: "pointer",
-                  fontSize: "12px",
-                  textAlign: "left",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  transition: "all 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
                 }}
               >
+                {key === "satellite"
+                  ? "🛰️"
+                  : key === "streets"
+                    ? "🗺️"
+                    : key === "positron"
+                      ? "⚪"
+                      : "⚫"}{" "}
                 {layer.name}
               </button>
             ))}
@@ -324,48 +343,43 @@ function FieldMap() {
           </div>
 
           <MapContainer
-            center={[28.6139, 77.209]}
-            zoom={10}
+            center={[20.5937, 78.9629]}
+            zoom={5}
+            minZoom={3}
+            maxBounds={[
+              [-90, -180],
+              [90, 180],
+            ]}
+            worldCopyJump={true}
             style={{ height: "100%", width: "100%" }}
             zoomControl={false}
+            
           >
             <ZoomControl position="bottomright" />
             <TileLayer
               attribution={TILE_LAYERS[activeLayer].attribution}
               url={TILE_LAYERS[activeLayer].url}
+              noWrap={true}
+              zIndex={1}
             />
 
             <MapBoundsUpdater fields={savedFields} />
 
-            {/* Saved Fields */}
-            {savedFields.map((field) => (
-              <Polygon
-                key={field._id}
-                positions={polygonToLeaflet(field.geoJson)}
-                pathOptions={{
-                  color: selectedField?._id === field._id ? "#ffeb3b" : "#ffffff",
-                  fillColor: selectedField?._id === field._id ? "#ffeb3b" : "#ffffff",
-                  fillOpacity: selectedField?._id === field._id ? 0.1 : 0.05,
-                  weight: selectedField?._id === field._id ? 3 : 1,
-                  dashArray: selectedField?._id === field._id ? "" : "5, 5"
-                }}
-                eventHandlers={{
-                  click: () => setSelectedField(field),
-                }}
-              />
-            ))}
-
             {/* Canvas Cropped Satellite Overlay */}
-            {selectedField?.tileUrls && selectedField.geoJson && 
-              (mapMode === "visual" ? selectedField.tileUrls : (selectedField.ndviTileUrls || selectedField.tileUrls)).map((url, index) => (
-              <BoundaryTileLayer
-                key={`sat-${selectedField._id}-${index}-${mapMode}`}
-                url={url}
-                boundary={selectedField.geoJson}
-                zIndex={10}
-                opacity={1}
-              />
-            ))}
+            {selectedField?.tileUrls &&
+              selectedField.geoJson &&
+              (mapMode === "visual"
+                ? selectedField.tileUrls
+                : selectedField.ndviTileUrls || selectedField.tileUrls
+              ).map((url, index) => (
+                <BoundaryTileLayer
+                  key={`sat-overlay-${selectedField._id}-${index}-${mapMode}`}
+                  url={url}
+                  boundary={selectedField.geoJson}
+                  zIndex={100}
+                  opacity={1}
+                />
+              ))}
 
             <FeatureGroup>
               <EditControl
@@ -376,8 +390,28 @@ function FieldMap() {
                     layer: e.layer,
                   })
                 }
+                onEdited={(e) => {
+                  const layers = e.layers;
+                  layers.eachLayer((layer) => {
+                    const fieldId = layer.options.fieldId;
+                    if (fieldId) handleFieldEdit(fieldId, layer.toGeoJSON());
+                  });
+                }}
+                onDeleted={(e) => {
+                  const layers = e.layers;
+                  layers.eachLayer((layer) => {
+                    const fieldId = layer.options.fieldId;
+                    if (fieldId) handleDeleteField(fieldId);
+                  });
+                }}
                 draw={{
-                  rectangle: false,
+                  rectangle: {
+                    shapeOptions: {
+                      color: "#10b981",
+                      fillColor: "#10b981",
+                      fillOpacity: 0.2,
+                    },
+                  },
                   circle: false,
                   circlemarker: false,
                   marker: false,
@@ -385,17 +419,36 @@ function FieldMap() {
                   polygon: {
                     allowIntersection: false,
                     shapeOptions: {
-                      color: "#27ae60",
-                      fillColor: "#27ae60",
-                      fillOpacity: 0.3,
+                      color: "#10b981",
+                      fillColor: "#10b981",
+                      fillOpacity: 0.2,
                     },
                   },
                 }}
                 edit={{
                   edit: true,
-                  remove: true
+                  remove: true,
                 }}
               />
+              {/* Render Saved Fields inside FeatureGroup to make them editable */}
+              {savedFields.map((field) => (
+                <Polygon
+                  key={field._id}
+                  fieldId={field._id} // Pass custom option for edit handler
+                  positions={polygonToLeaflet(field.geoJson)}
+                  pathOptions={{
+                    color:
+                      selectedField?._id === field._id ? "#10b981" : "#ffffff",
+                    fillColor: "transparent",
+                    fillOpacity: 0,
+                    weight: selectedField?._id === field._id ? 3 : 1,
+                    dashArray: selectedField?._id === field._id ? "" : "5, 5",
+                  }}
+                  eventHandlers={{
+                    click: () => setSelectedField(field),
+                  }}
+                />
+              ))}
             </FeatureGroup>
           </MapContainer>
 
@@ -424,7 +477,7 @@ function FieldMap() {
             flexDirection: "column",
             gap: "15px",
             height: "100%",
-            paddingRight: "5px"
+            paddingRight: "5px",
           }}
         >
           <FieldInfoPanel

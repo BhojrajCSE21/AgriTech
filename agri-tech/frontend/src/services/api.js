@@ -54,4 +54,8 @@ export const aiAPI = {
   predictYield: (fieldId) => api.get(`/ai/yield-prediction/${fieldId}`)
 };
 
+export const marketAPI = {
+  getPrices: () => api.get('/market/prices')
+};
+
 export default api;

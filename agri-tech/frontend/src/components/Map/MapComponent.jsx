@@ -25,17 +25,36 @@ function LocationMarker({ position, setPosition }) {
   );
 }
 
-function MapComponent({ center = [20.5937, 78.9629], zoom = 5, children }) {
+// function MapComponent({ center = [20.5937, 78.9629], zoom = 5, children }) {
+//   return (
+//     <MapContainer
+//       center={center}
+//       zoom={zoom}
+//       style={{ height: '100%', width: '100%', borderRadius: '10px' }}
+//     >
+//       <TileLayer
+//         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+//         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+//       />
+//       {children}
+//     </MapContainer>
+//   );
+// }
+
+function MapComponent({
+  center = [20.5937, 78.9629],
+  zoom = 5,
+  tileUrl = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  children,
+}) {
   return (
     <MapContainer
       center={center}
       zoom={zoom}
       style={{ height: '100%', width: '100%', borderRadius: '10px' }}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      <TileLayer attribution={attribution} url={tileUrl} />
       {children}
     </MapContainer>
   );

@@ -1,65 +1,133 @@
 const axios = require("axios");
+const turf = require("@turf/turf");
 
-const STAC_API_URL = "https://planetarycomputer.microsoft.com/api/stac/v1";
+// Element84 Earth Search — free, fast, reliable STAC API for Sentinel-2
+const STAC_API_URL = "https://earth-search.aws.element84.com/v1";
+
+// TiTiler — a public, high-performance tile server for Cloud Optimized GeoTIFFs (COGs)
+// This replaces the unreliable Planetary Computer tile server.
+const TITILER_URL =
+  "https://titiler.xyz/cog/tiles/WebMercatorQuad/{z}/{x}/{y}@1x";
 
 /**
- * Searches for the latest Sentinel-2 L2A scene that covers the field geometry
- * @param {Object} geometry - The GeoJSON geometry of the field
- * @returns {Object|null} - Metadata of the latest satellite scene
+ * Helper: retry a function with exponential backoff.
+ */
+async function withRetry(fn, retries = 2, delayMs = 2000) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      const status = error.response?.status;
+      const isTimeout =
+        error.code === "ECONNABORTED" || error.code === "ETIMEDOUT";
+      const isRetryable =
+        status === 504 || status === 429 || status === 502 || isTimeout;
+
+      if (isRetryable && attempt < retries) {
+        const wait = delayMs * attempt;
+        console.log(
+          `STAC API attempt ${attempt}/${retries} failed (${status || error.code}), retrying in ${wait}ms...`,
+        );
+        await new Promise((r) => setTimeout(r, wait));
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+
+/**
+ * Searches for the latest Sentinel-2 L2A scene and generates TiTiler URLs for map tiles.
  */
 exports.getLatestSentinelData = async (geometry) => {
   try {
-    // Search the Microsoft Planetary Computer STAC API
-    const response = await axios.post(`${STAC_API_URL}/search`, {
+    const now = new Date();
+    const past = new Date();
+    past.setDate(now.getDate() - 90);
+    const dateRange = `${past.toISOString().split("T")[0]}T00:00:00Z/${now.toISOString().split("T")[0]}T23:59:59Z`;
+
+    const center = turf.centroid(geometry);
+    const [lng, lat] = center.geometry.coordinates;
+    const smallBbox = [
+      Number((lng - 0.1).toFixed(4)),
+      Number((lat - 0.1).toFixed(4)),
+      Number((lng + 0.1).toFixed(4)),
+      Number((lat + 0.1).toFixed(4)),
+    ];
+
+    const searchParams = {
       collections: ["sentinel-2-l2a"],
-      intersects: geometry,
-      limit: 3,
+      bbox: smallBbox,
+      datetime: dateRange,
+      limit: 1, // Only need the latest for tiles to keep it simple and fast
       sortby: [{ field: "properties.datetime", direction: "desc" }],
       query: {
-        "eo:cloud_cover": { lt: 15 }, // Filter scenes with less than 15% cloud cover
+        "eo:cloud_cover": { lt: 25 },
       },
-    });
+    };
+
+    const response = await withRetry(
+      () =>
+        axios.post(`${STAC_API_URL}/search`, searchParams, { timeout: 30000 }),
+      2,
+    );
 
     if (response.data.features && response.data.features.length > 0) {
       const latestScene = response.data.features[0];
-      
-      const tileUrls = response.data.features.map(scene => 
-        `https://planetarycomputer.microsoft.com/api/data/v1/item/tiles/WebMercatorQuad/{z}/{x}/{y}@1x?collection=sentinel-2-l2a&item=${scene.id}&assets=visual&asset_bidx=visual%7C1%2C2%2C3&nodata=0&format=png`
+      const assets = latestScene.assets;
+
+      console.log(
+        `✓ Found scene: ${latestScene.id} (${latestScene.properties.datetime})`,
       );
 
-      // Fetch authentic NDVI tile templates from the tilejson endpoint
-      const ndviTileUrls = [];
-      for (const scene of response.data.features) {
-        try {
-          const tileJsonUrl = `https://planetarycomputer.microsoft.com/api/data/v1/item/tilejson.json?collection=sentinel-2-l2a&item=${scene.id}&assets=B04&assets=B08&expression=(b2-b1)/(b2%2Bb1)&rescale=0,1&colormap_name=viridis`;
-          
-          const tileRes = await axios.get(tileJsonUrl);
-          
-          if (tileRes.data.tiles && tileRes.data.tiles.length > 0) {
-            ndviTileUrls.push(tileRes.data.tiles[0]);
-          }
-        } catch (err) {
-          console.error(`Failed to fetch NDVI tilejson for scene ${scene.id}:`, err.message);
-        }
+      // 1. Get working thumbnail (S3 direct)
+      const thumbnail = assets.thumbnail?.href || assets.visual?.href;
+
+      // visual COG (true color) - used for the visual overlay
+      const visualCOG = assets.visual?.href || assets.TCI?.href || null;
+      const tileUrl = visualCOG
+        ? `${TITILER_URL}?url=${encodeURIComponent(visualCOG)}&rescale=0,3000`
+        : null;
+
+      // try to locate a single multiband scene COG first, otherwise check for separate band assets
+      const sceneCOG = assets.scene?.href || assets.cog?.href || null;
+      const b04 =
+        assets.B04?.href || assets.red?.href || assets["B04"]?.href || null;
+      const b08 =
+        assets.B08?.href || assets.nir?.href || assets["B08"]?.href || null;
+
+      // NDVI: only build a TiTiler expression URL when we have a single multiband COG
+      let ndviTileUrl = null;
+      if (sceneCOG) {
+        ndviTileUrl = `${TITILER_URL}?url=${encodeURIComponent(sceneCOG)}&expression=(b8-b4)/(b8+b4)&rescale=-0.2,0.8&colormap_name=viridis`;
+      } else if (b04 && b08) {
+        // public titiler.xyz typically rejects multi-url expressions (two url= params).
+        // So do NOT attempt `?url=...&url=...&expression=...` against titiler.xyz — it will 422.
+        // Fallback: set ndviTileUrl = null and log an explanatory warning.
+        console.warn(
+          "Found separate B04/B08 COGs but titiler.xyz does not accept multi-url expressions. Consider server-side NDVI COG generation or hosting your own titiler.",
+        );
+        ndviTileUrl = null;
+      } else {
+        ndviTileUrl = null;
       }
 
+      console.log("tileUrl:", tileUrl);
+      console.log("ndviTileUrl:", ndviTileUrl);
       return {
         date: latestScene.properties.datetime,
         cloudCover: latestScene.properties["eo:cloud_cover"],
-        thumbnail: latestScene.assets.rendered_preview?.href || latestScene.assets.thumbnail?.href,
-        ndviThumbnail: latestScene.assets.rendered_preview?.href, // Simple and reliable
+        thumbnail: thumbnail,
+        ndviThumbnail: thumbnail,
         id: latestScene.id,
-        tileUrls: tileUrls,
-        ndviTileUrls: ndviTileUrls
+        tileUrls: [tileUrl], // Array format expected by frontend
+        ndviTileUrls: [ndviTileUrl],
       };
     }
 
     return null;
   } catch (error) {
     console.error("Satellite Search Error:", error.message);
-    if (error.response) {
-      console.error("Response data:", error.response.data);
-    }
     return null;
   }
 };

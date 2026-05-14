@@ -18,15 +18,17 @@ const TILE_LAYERS = {
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   },
-  positron: {
-    name: "Light",
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
-    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+  mapboxStreets: {
+    name: "Mapbox Streets",
+    attribution:
+      '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
+    url: `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/256/{z}/{x}/{y}?access_token=${process.env.REACT_APP_MAPBOX_TOKEN}`,
   },
-  dark: {
-    name: "Dark",
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+  mapboxSatellite: {
+    name: "Mapbox Satellite",
+    attribution:
+      '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
+    url: `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}?access_token=${process.env.REACT_APP_MAPBOX_TOKEN}`,
   },
 };
 

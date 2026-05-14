@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { fieldsAPI, aiAPI } from '../services/api';
+import { fieldsAPI, aiAPI, marketAPI } from '../services/api';
 
-const CROP_YIELDS = {
-  'Winter Wheat': { yieldPerHa: 3.5, pricePerTon: 220 },
-  'Corn': { yieldPerHa: 10.5, pricePerTon: 180 },
-  'Soybeans': { yieldPerHa: 3.2, pricePerTon: 450 },
+const DEFAULT_CROP_DATA = {
+  'Winter Wheat': { yieldPerHa: 3.5, pricePerTon: 244 },
+  'Corn': { yieldPerHa: 10.5, pricePerTon: 184 },
+  'Soybeans': { yieldPerHa: 3.2, pricePerTon: 446 },
+  'Rice': { yieldPerHa: 4.8, pricePerTon: 550 },
 };
+const MARKET_DATE = "May 13, 2026";
 
 const getSeverityColor = (severity) => {
   if (!severity || severity === 'None') return '#15803d';
@@ -17,29 +19,51 @@ const getSeverityColor = (severity) => {
 function AICenter() {
   const [fields, setFields] = useState([]);
   const [selectedField, setSelectedField] = useState(null);
+  const [weather, setWeather] = useState(null);
+  const [livePrices, setLivePrices] = useState({});
   const [loading, setLoading] = useState(true);
 
   // Scanner state
   const [aiPreview, setAiPreview] = useState(null);
   const [aiScanning, setAiScanning] = useState(false);
   const [aiResult, setAiResult] = useState(null);
+  const [symptoms, setSymptoms] = useState('');
   const [scanHistory, setScanHistory] = useState([]);
   const fileInputRef = useRef();
 
   useEffect(() => {
-    const fetchFields = async () => {
+    const fetchInitialData = async () => {
       try {
-        const res = await fieldsAPI.getAll();
-        setFields(res.data);
-        if (res.data.length > 0) setSelectedField(res.data[0]);
+        const [fieldsRes, marketRes] = await Promise.all([
+          fieldsAPI.getAll(),
+          marketAPI.getPrices()
+        ]);
+        setFields(fieldsRes.data);
+        setLivePrices(marketRes.data);
+        if (fieldsRes.data.length > 0) setSelectedField(fieldsRes.data[0]);
       } catch (err) {
-        console.error('Failed to fetch fields');
+        console.error('Data fetch failed:', err);
       } finally {
         setLoading(false);
       }
     };
-    fetchFields();
+    fetchInitialData();
   }, []);
+
+  useEffect(() => {
+    const fetchWeather = async () => {
+      if (!selectedField || !selectedField.location) return;
+      try {
+        const [lng, lat] = selectedField.location.coordinates;
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m`);
+        const data = await res.json();
+        setWeather(data.current);
+      } catch (err) {
+        console.error('Weather fetch failed');
+      }
+    };
+    fetchWeather();
+  }, [selectedField]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -53,6 +77,7 @@ function AICenter() {
     const formData = new FormData();
     formData.append('image', file);
     formData.append('cropType', selectedField.cropType);
+    formData.append('symptoms', symptoms);
 
     try {
       const res = await aiAPI.analyzeCrop(formData);
@@ -105,11 +130,33 @@ function AICenter() {
   // Yield Prediction for selected field
   const getYieldForecast = (field) => {
     if (!field || !field.ndvi) return null;
-    const cropData = CROP_YIELDS[field.cropType] || CROP_YIELDS['Winter Wheat'];
-    const healthModifier = Math.min(1.0, Math.max(0.2, field.ndvi / 0.75));
-    const tons = field.area * cropData.yieldPerHa * healthModifier;
+    
+    // Get live price or fallback to default
+    const marketInfo = livePrices[field.cropType] || { pricePerTon: (DEFAULT_CROP_DATA[field.cropType]?.pricePerTon || 200) };
+    const cropData = { ...DEFAULT_CROP_DATA[field.cropType], pricePerTon: marketInfo.pricePerTon };
+    
+    // 1. NDVI Health Modifier (0.2 to 1.0)
+    let healthModifier = Math.min(1.0, Math.max(0.2, field.ndvi / 0.75));
+    
+    // 2. Real-time Weather Stress Factor
+    let weatherStress = 1.0;
+    if (weather) {
+      const temp = weather.temperature_2m;
+      const humidity = weather.relative_humidity_2m;
+      
+      // Heat Stress: Reduce yield if temp > 30°C
+      if (temp > 30) weatherStress -= (temp - 30) * 0.02;
+      // Cold Stress: Reduce yield if temp < 5°C
+      if (temp < 5) weatherStress -= (5 - temp) * 0.05;
+      // Humidity Stress (Disease Risk): Reduce yield if humidity > 85%
+      if (humidity > 85) weatherStress -= 0.05;
+      
+      weatherStress = Math.max(0.5, weatherStress); // Cap stress at 50% loss
+    }
+
+    const tons = field.area * cropData.yieldPerHa * healthModifier * weatherStress;
     const revenue = tons * cropData.pricePerTon;
-    return { tons, revenue, cropData };
+    return { tons, revenue, cropData, weatherStress };
   };
 
   const allFieldsYield = fields.map(f => {
@@ -167,6 +214,35 @@ function AICenter() {
         </div>
       </div>
 
+      {/* Global Market Ticker */}
+      <div style={{ 
+        background: 'linear-gradient(90deg, #1e293b 0%, #334155 100%)', 
+        borderRadius: '12px', 
+        padding: '12px 20px', 
+        marginBottom: '28px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        color: 'white',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ background: '#10b981', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 800 }}>LIVE MARKET</div>
+          <div style={{ fontSize: '13px', fontWeight: 600 }}>Global Commodity Prices <span style={{ opacity: 0.5, fontWeight: 400 }}>({MARKET_DATE})</span></div>
+        </div>
+        <div style={{ display: 'flex', gap: '24px' }}>
+          {Object.entries(livePrices).map(([name, data]) => (
+            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '12px', opacity: 0.7 }}>{name}:</span>
+              <span style={{ fontSize: '13px', fontWeight: 700 }}>${data.pricePerTon}</span>
+              <span style={{ fontSize: '11px', color: data.trend === 'up' ? '#4ade80' : '#f87171' }}>
+                {data.trend === 'up' ? '▲' : '▼'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '28px' }}>
         {/* AI Disease Scanner */}
         <div style={{
@@ -210,6 +286,28 @@ function AICenter() {
                 <div style={{ fontSize: '48px', marginBottom: '12px' }}>📸</div>
                 <div style={{ fontWeight: 600, color: '#0369a1', fontSize: '15px' }}>Click to upload leaf photo</div>
                 <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px' }}>JPG, PNG — any plant leaf or crop image</div>
+                <div style={{ marginTop: '16px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '6px' }}>
+                    FIELD OBSERVATIONS (OPTIONAL)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. yellow spots, dry leaves, insects seen..."
+                    value={symptoms}
+                    onChange={(e) => setSymptoms(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid #e2e8f0',
+                      fontSize: '13px',
+                      background: 'white',
+                      outline: 'none',
+                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.03)'
+                    }}
+                  />
+                </div>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -256,8 +354,26 @@ function AICenter() {
                       border: `1px solid ${getSeverityColor(aiResult.severity)}30`,
                       marginBottom: '12px'
                     }}>
+                      {aiResult.isVerified && (
+                        <div style={{ 
+                          background: '#ecfdf5', 
+                          color: '#059669', 
+                          padding: '6px 12px', 
+                          borderRadius: '8px', 
+                          fontSize: '11px', 
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          marginBottom: '12px',
+                          border: '1px solid #d1fae5'
+                        }}>
+                          🛡️ MULTI-MODEL VERIFIED
+                        </div>
+                      )}
+
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                        <div style={{ fontWeight: 700, fontSize: '14px', color: getSeverityColor(aiResult.severity) }}>
+                        <div style={{ fontWeight: 800, fontSize: '18px', color: getSeverityColor(aiResult.severity) }}>
                           {aiResult.disease}
                         </div>
                         <div style={{ display: 'flex', gap: '6px' }}>
@@ -336,6 +452,12 @@ function AICenter() {
                     { label: 'Crop Type', value: selectedField.cropType },
                     { label: 'Base Yield Rate', value: `${selectedForecast.cropData.yieldPerHa} t/ha` },
                     { label: 'NDVI Health Score', value: selectedField.ndvi ? selectedField.ndvi.toFixed(2) : 'Not analyzed' },
+                    { 
+                      label: 'Weather Stress Factor', 
+                      value: <span style={{ color: selectedForecast.weatherStress < 1 ? '#ef4444' : '#10b981' }}>
+                        {(selectedForecast.weatherStress * 100).toFixed(0)}% (Optimal: 100%)
+                      </span> 
+                    },
                     { label: 'Market Price', value: `$${selectedForecast.cropData.pricePerTon}/ton` },
                   ].map(({ label, value }) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', marginBottom: '6px', borderBottom: '1px solid #f1f5f9', fontSize: '13px' }}>
@@ -363,7 +485,37 @@ function AICenter() {
 
       {/* All Fields Summary + Scan History */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-        {/* All Fields Forecast Table */}
+        {/* Recent Scan History (Moved to Left under Scanner) */}
+        <div style={{ background: 'white', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.07)', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f1f5f9' }}>
+            <div style={{ fontWeight: 700, fontSize: '16px', color: '#0f172a' }}>🗂️ Recent Scan History</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>Last 5 diagnoses this session</div>
+          </div>
+          <div style={{ padding: '8px 0' }}>
+            {scanHistory.length === 0 ? (
+              <div style={{ padding: '48px 24px', textAlign: 'center', color: '#94a3b8' }}>
+                <div style={{ fontSize: '36px', marginBottom: '10px' }}>🔬</div>
+                <div style={{ fontSize: '13px' }}>No scans yet. Upload a leaf image to get started.</div>
+              </div>
+            ) : scanHistory.map((scan, i) => (
+              <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '10px 20px', borderBottom: '1px solid #f8fafc' }}>
+                <img src={scan.preview} alt="scan" style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #e2e8f0', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: '13px', color: getSeverityColor(scan.result.severity), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {scan.result.disease}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{scan.field} · {scan.cropType}</div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#0369a1' }}>{(scan.result.confidence * 100).toFixed(0)}%</div>
+                  <div style={{ fontSize: '10px', color: '#cbd5e1' }}>{scan.date}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Farm-Wide Yield Summary (Moved to Right under Yield Predictor) */}
         <div style={{ background: 'white', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.07)', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
           <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f1f5f9' }}>
             <div style={{ fontWeight: 700, fontSize: '16px', color: '#0f172a' }}>🌾 Farm-Wide Yield Summary</div>
@@ -389,36 +541,6 @@ function AICenter() {
                 ) : (
                   <span style={{ fontSize: '11px', color: '#94a3b8', background: '#f1f5f9', padding: '2px 8px', borderRadius: '10px' }}>Needs analysis</span>
                 )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Scan History */}
-        <div style={{ background: 'white', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.07)', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f1f5f9' }}>
-            <div style={{ fontWeight: 700, fontSize: '16px', color: '#0f172a' }}>🗂️ Recent Scan History</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>Last 5 diagnoses this session</div>
-          </div>
-          <div style={{ padding: '8px 0' }}>
-            {scanHistory.length === 0 ? (
-              <div style={{ padding: '48px 24px', textAlign: 'center', color: '#94a3b8' }}>
-                <div style={{ fontSize: '36px', marginBottom: '10px' }}>🔬</div>
-                <div style={{ fontSize: '13px' }}>No scans yet. Upload a leaf image to get started.</div>
-              </div>
-            ) : scanHistory.map((scan, i) => (
-              <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '10px 20px', borderBottom: '1px solid #f8fafc' }}>
-                <img src={scan.preview} alt="scan" style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #e2e8f0', flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: '13px', color: getSeverityColor(scan.result.severity), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {scan.result.disease}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{scan.field} · {scan.cropType}</div>
-                </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#0369a1' }}>{(scan.result.confidence * 100).toFixed(0)}%</div>
-                  <div style={{ fontSize: '10px', color: '#cbd5e1' }}>{scan.date}</div>
-                </div>
               </div>
             ))}
           </div>
