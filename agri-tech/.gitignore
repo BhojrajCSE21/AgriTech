@@ -3,3 +3,7 @@ node_modules/
 *.log
 .DS_Store
 agri-tech/frontend/build/
+agri-tech/frontend/build/
+agri-tech/frontend/.env
+agri-tech/backend/.env
+node_modules/
