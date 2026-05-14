@@ -78,6 +78,7 @@ function FieldMap() {
   const [mapMode, setMapMode] = useState("visual"); // visual or ndvi
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [tileOverlayFailed, setTileOverlayFailed] = useState(false);
 
   const normalizeTileUrl = (url) =>
     url
@@ -95,15 +96,29 @@ function FieldMap() {
 
   const visualTileUrls = getValidTileUrls(selectedField?.tileUrls);
   const ndviTileUrls = getValidTileUrls(selectedField?.ndviTileUrls);
-  const overlayTileUrls =
-    mapMode === "ndvi"
-      ? ndviTileUrls.length > 0
-        ? ndviTileUrls
-        : visualTileUrls
-      : visualTileUrls;
-  const isFallbackHeatmap = mapMode === "ndvi" && ndviTileUrls.length === 0;
+  const overlayTileUrls = mapMode === "ndvi" ? ndviTileUrls : visualTileUrls;
   const selectedFieldBounds = getPolygonBounds(selectedField?.geoJson);
+  const satelliteTileBounds = getBboxBounds(selectedField?.satelliteBbox);
   const selectedFieldSvgPoints = getPolygonSvgPoints(selectedField?.geoJson);
+  const thumbnailFallbackImage =
+    mapMode === "visual"
+      ? selectedField?.satelliteImage
+      : selectedField?.ndviThumbnail;
+  const showThumbnailFallback =
+    Boolean(thumbnailFallbackImage) &&
+    selectedFieldBounds &&
+    selectedFieldSvgPoints &&
+    (overlayTileUrls.length === 0 || tileOverlayFailed);
+
+  useEffect(() => {
+    setTileOverlayFailed(false);
+  }, [selectedField?._id, mapMode, overlayTileUrls.join("|")]);
+
+  useEffect(() => {
+    if (selectedField && mapMode === "ndvi" && ndviTileUrls.length === 0) {
+      setMapMode("visual");
+    }
+  }, [selectedField, mapMode, ndviTileUrls.length]);
 
   useEffect(() => {
     loadFields();
@@ -237,6 +252,15 @@ function FieldMap() {
     return [
       [Math.min(...lats), Math.min(...lngs)],
       [Math.max(...lats), Math.max(...lngs)],
+    ];
+  }
+
+  function getBboxBounds(bbox) {
+    if (!Array.isArray(bbox) || bbox.length < 4) return null;
+    const [west, south, east, north] = bbox;
+    return [
+      [south, west],
+      [north, east],
     ];
   }
 
@@ -440,45 +464,41 @@ function FieldMap() {
                   key={`sat-overlay-${selectedField._id}-${index}-${mapMode}`}
                   url={url}
                   boundary={selectedField.geoJson}
+                  bounds={satelliteTileBounds || undefined}
                   crossOrigin={true}
                   zIndex={350}
                   opacity={1}
-                  className={isFallbackHeatmap ? "ndvi-heatmap-tile" : ""}
+                  eventHandlers={{
+                    tileerror: () => setTileOverlayFailed(true),
+                    tileload: () => setTileOverlayFailed(false),
+                  }}
                 />
               ))}
 
-            {selectedField?.satelliteImage &&
-              selectedFieldBounds &&
-              selectedFieldSvgPoints && (
-                <SVGOverlay
-                  key={`sat-image-${selectedField._id}-${mapMode}`}
-                  bounds={selectedFieldBounds}
-                  opacity={mapMode === "ndvi" ? 0.75 : 0.95}
-                  zIndex={330}
-                  className={isFallbackHeatmap ? "ndvi-heatmap-tile" : ""}
-                >
-                  <defs>
-                    <clipPath
-                      id={`field-clip-${selectedField._id}`}
-                      clipPathUnits="objectBoundingBox"
-                    >
-                      <polygon points={selectedFieldSvgPoints} />
-                    </clipPath>
-                  </defs>
-                  <image
-                    href={
-                      mapMode === "ndvi"
-                        ? selectedField.ndviThumbnail ||
-                          selectedField.satelliteImage
-                        : selectedField.satelliteImage
-                    }
-                    width="100%"
-                    height="100%"
-                    preserveAspectRatio="none"
-                    clipPath={`url(#field-clip-${selectedField._id})`}
-                  />
-                </SVGOverlay>
-              )}
+            {showThumbnailFallback && (
+              <SVGOverlay
+                key={`sat-image-${selectedField._id}-${mapMode}`}
+                bounds={selectedFieldBounds}
+                opacity={mapMode === "ndvi" ? 0.75 : 0.95}
+                zIndex={330}
+              >
+                <defs>
+                  <clipPath
+                    id={`field-clip-${selectedField._id}`}
+                    clipPathUnits="objectBoundingBox"
+                  >
+                    <polygon points={selectedFieldSvgPoints} />
+                  </clipPath>
+                </defs>
+                <image
+                  href={thumbnailFallbackImage}
+                  width="100%"
+                  height="100%"
+                  preserveAspectRatio="none"
+                  clipPath={`url(#field-clip-${selectedField._id})`}
+                />
+              </SVGOverlay>
+            )}
 
             <FeatureGroup>
               <EditControl

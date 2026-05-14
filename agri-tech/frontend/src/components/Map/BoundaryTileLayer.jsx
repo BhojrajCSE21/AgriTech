@@ -7,10 +7,19 @@ const createBoundaryLayer = (props, context) => {
     ...props,
     boundary: props.boundary,
   });
+  if (props.eventHandlers) {
+    layer.on(props.eventHandlers);
+  }
   return { instance: layer, context };
 };
 
 const updateBoundaryLayer = (instance, props, prevProps) => {
+  if (prevProps.eventHandlers) {
+    instance.off(prevProps.eventHandlers);
+  }
+  if (props.eventHandlers) {
+    instance.on(props.eventHandlers);
+  }
   if (props.url !== prevProps.url) {
     instance.setUrl(props.url);
   }

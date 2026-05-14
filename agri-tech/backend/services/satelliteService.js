@@ -6,8 +6,10 @@ const STAC_API_URL = "https://earth-search.aws.element84.com/v1";
 
 // TiTiler — a public, high-performance tile server for Cloud Optimized GeoTIFFs (COGs)
 // This replaces the unreliable Planetary Computer tile server.
-const TITILER_URL =
+const TITILER_COG_TILE_URL =
   "https://titiler.xyz/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png";
+const TITILER_STAC_TILE_URL =
+  "https://titiler.xyz/stac/tiles/WebMercatorQuad/{z}/{x}/{y}.png";
 
 /**
  * Helper: retry a function with exponential backoff.
@@ -82,32 +84,29 @@ exports.getLatestSentinelData = async (geometry) => {
 
       // 1. Get working thumbnail (S3 direct)
       const thumbnail = assets.thumbnail?.href || assets.visual?.href;
+      const stacItemUrl = `${STAC_API_URL}/collections/sentinel-2-l2a/items/${latestScene.id}`;
+      const encodedStacItemUrl = encodeURIComponent(stacItemUrl);
 
-      // visual COG (true color) - used for the visual overlay
+      // Visual tiles for the map. Use the direct COG endpoint so Leaflet can
+      // request real raster tiles without stretching the low-res thumbnail.
       const visualCOG = assets.visual?.href || assets.TCI?.href || null;
       const tileUrl = visualCOG
-        ? `${TITILER_URL}?url=${encodeURIComponent(visualCOG)}`
+        ? `${TITILER_COG_TILE_URL}?url=${encodeURIComponent(visualCOG)}`
         : null;
 
-      // try to locate a single multiband scene COG first, otherwise check for separate band assets
+      // Build real NDVI tiles from Sentinel red/NIR assets.
       const sceneCOG = assets.scene?.href || assets.cog?.href || null;
-      const b04 =
-        assets.B04?.href || assets.red?.href || assets["B04"]?.href || null;
-      const b08 =
-        assets.B08?.href || assets.nir?.href || assets["B08"]?.href || null;
-
-      // NDVI: only build a TiTiler expression URL when we have a single multiband COG
+      const redAsset = assets.red ? "red" : assets.B04 ? "B04" : null;
+      const nirAsset = assets.nir ? "nir" : assets.B08 ? "B08" : null;
       let ndviTileUrl = null;
-      if (sceneCOG) {
-        ndviTileUrl = `${TITILER_URL}?url=${encodeURIComponent(sceneCOG)}&expression=(b8-b4)/(b8+b4)&rescale=-0.2,0.8&colormap_name=viridis`;
-      } else if (b04 && b08) {
-        // public titiler.xyz typically rejects multi-url expressions (two url= params).
-        // So do NOT attempt `?url=...&url=...&expression=...` against titiler.xyz — it will 422.
-        // Fallback: set ndviTileUrl = null and log an explanatory warning.
-        console.warn(
-          "Found separate B04/B08 COGs but titiler.xyz does not accept multi-url expressions. Consider server-side NDVI COG generation or hosting your own titiler.",
+      if (redAsset && nirAsset) {
+        const ndviExpression = encodeURIComponent(
+          `(${nirAsset}-${redAsset})/(${nirAsset}+${redAsset})`,
         );
-        ndviTileUrl = null;
+        ndviTileUrl = `${TITILER_STAC_TILE_URL}?url=${encodedStacItemUrl}&assets=${redAsset}&assets=${nirAsset}&asset_as_band=true&expression=${ndviExpression}&rescale=-0.2,0.8&colormap_name=viridis`;
+      } else if (sceneCOG) {
+        const ndviExpression = encodeURIComponent("(b8-b4)/(b8+b4)");
+        ndviTileUrl = `${TITILER_COG_TILE_URL}?url=${encodeURIComponent(sceneCOG)}&expression=${ndviExpression}&rescale=-0.2,0.8&colormap_name=viridis`;
       } else {
         ndviTileUrl = null;
       }
@@ -118,8 +117,9 @@ exports.getLatestSentinelData = async (geometry) => {
         date: latestScene.properties.datetime,
         cloudCover: latestScene.properties["eo:cloud_cover"],
         thumbnail: thumbnail,
-        ndviThumbnail: thumbnail,
+        ndviThumbnail: null,
         id: latestScene.id,
+        bbox: latestScene.bbox,
         tileUrls: [tileUrl].filter(Boolean), // Array format expected by frontend
         ndviTileUrls: [ndviTileUrl].filter(Boolean),
       };

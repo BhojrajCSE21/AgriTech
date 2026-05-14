@@ -25,6 +25,9 @@ function FieldInfoPanel({ field, onClose, onAnalyze, onDelete, analyzing, mapMod
   const hasVisualTileUrls = (field?.tileUrls || []).some(
     (url) => typeof url === 'string' && url.trim()
   );
+  const hasNdviTileUrls = (field?.ndviTileUrls || []).some(
+    (url) => typeof url === 'string' && url.trim()
+  );
 
 
   useEffect(() => {
@@ -203,25 +206,27 @@ function FieldInfoPanel({ field, onClose, onAnalyze, onDelete, analyzing, mapMod
                     >
                       👁️ True Color
                     </button>
-                    <button
-                      onClick={() => setMapMode('ndvi')}
-                      style={{
-                        padding: '2px 6px',
-                        fontSize: '10px',
-                        border: 'none',
-                        background: mapMode === 'ndvi' ? 'white' : 'transparent',
-                        borderRadius: '2px',
-                        cursor: 'pointer',
-                        boxShadow: mapMode === 'ndvi' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
-                      }}
-                    >
-                      🌡️ Heatmap
-                    </button>
+                    {hasNdviTileUrls && (
+                      <button
+                        onClick={() => setMapMode('ndvi')}
+                        style={{
+                          padding: '2px 6px',
+                          fontSize: '10px',
+                          border: 'none',
+                          background: mapMode === 'ndvi' ? 'white' : 'transparent',
+                          borderRadius: '2px',
+                          cursor: 'pointer',
+                          boxShadow: mapMode === 'ndvi' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
+                        }}
+                      >
+                        🌡️ Heatmap
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
               <img 
-                src={mapMode === 'visual' ? field.satelliteImage : (field.ndviThumbnail || field.satelliteImage)} 
+                src={mapMode === 'ndvi' && field.ndviThumbnail ? field.ndviThumbnail : field.satelliteImage} 
                 alt="Satellite thumbnail" 
                 style={{ width: '100%', borderRadius: '5px', marginTop: '5px', border: '1px solid #ddd' }} 
               />

@@ -92,6 +92,7 @@ router.post('/:id/analyze', auth, async (req, res) => {
       field.ndviThumbnail = satelliteData.ndviThumbnail;
       field.tileUrls = (satelliteData.tileUrls || []).filter(Boolean);
       field.ndviTileUrls = (satelliteData.ndviTileUrls || []).filter(Boolean);
+      field.satelliteBbox = satelliteData.bbox;
       
       // Since processing GeoTIFFs on a free server is hard, 
       // we generate a realistic NDVI based on the cloud cover and time of year

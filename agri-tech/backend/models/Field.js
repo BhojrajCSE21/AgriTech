@@ -76,6 +76,9 @@ const fieldSchema = new mongoose.Schema({
   ndviTileUrls: [{
     type: String
   }],
+  satelliteBbox: [{
+    type: Number
+  }],
   logs: [{
     date: { type: Date, default: Date.now },
     type: { type: String, required: true },

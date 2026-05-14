@@ -34,8 +34,3 @@
 .leaflet-draw-actions a:hover {
   background-color: #f4f4f4;
 }
-
-.ndvi-heatmap-tile {
-  filter: hue-rotate(55deg) saturate(2.2) contrast(1.25);
-  mix-blend-mode: multiply;
-}
